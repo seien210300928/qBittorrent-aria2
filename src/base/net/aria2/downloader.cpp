@@ -168,6 +168,69 @@ namespace Net::Aria2
             m_file->close();
     }
 
+    void Downloader::pause()
+    {
+        if ((m_state != State::Downloading) && (m_state != State::Probing))
+            return;
+
+        // Keep the control file so resume() can continue where we left off.
+        saveControlFile();
+
+        m_cancelled = true;
+        m_state = State::Paused;
+        m_speedTimer->stop();
+        m_controlTimer->stop();
+        if (m_probeReply)
+            m_probeReply->abort();
+        for (QNetworkReply *reply : m_replies)
+            reply->abort();
+        m_replies.clear();
+        m_replyIds.clear();
+        m_activeWorkers.clear();
+        if (m_file->isOpen())
+            m_file->close();
+    }
+
+    void Downloader::resume()
+    {
+        if (m_state != State::Paused)
+            return;
+
+        m_cancelled = false;
+        m_state = State::Downloading;
+        m_speedTimer->start();
+        m_controlTimer->start();
+
+        if (tryResume())
+        {
+            startWorkers();
+            return;
+        }
+
+        // No usable control file: probe and start over.
+        probe();
+    }
+
+    qint64 Downloader::downloaded() const
+    {
+        return m_planner.received().total();
+    }
+
+    qint64 Downloader::total() const
+    {
+        return m_planner.length();
+    }
+
+    qint64 Downloader::speed() const
+    {
+        return m_currentSpeed;
+    }
+
+    Downloader::State Downloader::state() const
+    {
+        return m_state;
+    }
+
     void Downloader::probe()
     {
         m_state = State::Probing;
@@ -591,13 +654,16 @@ namespace Net::Aria2
         if (m_state != State::Downloading)
             return;
 
+        qint64 totalBytes = 0;
         for (auto it = m_workerBytes.cbegin(); it != m_workerBytes.cend(); ++it)
         {
             const int id = it.key();
             const qint64 bytes = it.value();
+            totalBytes += bytes;
             const double speed = bytes / (speedSampleIntervalMs / 1000.0);
             m_planner.updateSpeed(id, speed, (speedSampleIntervalMs / 1000.0));
         }
+        m_currentSpeed = (totalBytes * 1000) / speedSampleIntervalMs;
         m_workerBytes.clear();
     }
 

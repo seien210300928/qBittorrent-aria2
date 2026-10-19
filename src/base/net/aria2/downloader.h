@@ -53,6 +53,7 @@ namespace Net::Aria2
             Idle,
             Probing,
             Downloading,
+            Paused,
             Finished,
             Failed
         };
@@ -62,6 +63,15 @@ namespace Net::Aria2
 
         void start();
         void cancel();
+        // Pause keeps the sidecar control file so resume() can continue.
+        void pause();
+        void resume();
+
+        // Queryable task state (used by HttpDownload tasks).
+        qint64 downloaded() const;
+        qint64 total() const;
+        qint64 speed() const;
+        State state() const;
 
     signals:
         void finished(const QString &url, const Path &filePath);
@@ -120,5 +130,6 @@ namespace Net::Aria2
         QTimer *m_controlTimer = nullptr;
         QElapsedTimer m_startupTimer;
         bool m_startupMeasured = false;
+        qint64 m_currentSpeed = 0;
     };
 }

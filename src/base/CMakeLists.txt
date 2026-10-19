@@ -71,6 +71,8 @@ add_library(qbt_base STATIC
     logger.h
     net/aria2/downloader.h
     net/aria2/downloadmanager.h
+    net/aria2/httpdownload.h
+    net/aria2/httpdownloadmanager.h
     net/aria2/rangeset.h
     net/aria2/segmentplanner.h
     net/dnsupdater.h
@@ -177,6 +179,8 @@ add_library(qbt_base STATIC
     logger.cpp
     net/aria2/downloader.cpp
     net/aria2/downloadmanager.cpp
+    net/aria2/httpdownload.cpp
+    net/aria2/httpdownloadmanager.cpp
     net/aria2/rangeset.cpp
     net/aria2/segmentplanner.cpp
     net/dnsupdater.cpp

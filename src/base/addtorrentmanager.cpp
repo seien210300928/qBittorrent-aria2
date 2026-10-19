@@ -35,9 +35,12 @@
 #include "base/bittorrent/torrentdescriptor.h"
 #include "base/logger.h"
 #include "base/net/aria2/downloadmanager.h"
+#include "base/net/aria2/httpdownloadmanager.h"
 #include "base/net/downloadmanager.h"
 #include "base/preferences.h"
 #include "base/utils/fs.h"
+
+#include <QUrl>
 
 AddTorrentManager::AddTorrentManager(IApplication *app, BitTorrent::Session *btSession, QObject *parent)
     : ApplicationComponent(app, parent)
@@ -54,6 +57,8 @@ AddTorrentManager::AddTorrentManager(IApplication *app, BitTorrent::Session *btS
             , this, &AddTorrentManager::onAria2TorrentFileDetected);
     connect(Net::Aria2::DownloadManager::instance(), &Net::Aria2::DownloadManager::downloadFailed
             , this, &AddTorrentManager::onAria2DownloadFailed);
+
+    Net::Aria2::HttpDownloadManager::initInstance();
 }
 
 BitTorrent::Session *AddTorrentManager::btSession() const
@@ -77,10 +82,28 @@ bool AddTorrentManager::addTorrent(const QString &source, const BitTorrent::AddT
         const auto *pref = Preferences::instance();
         if (pref->useAria2DownloadEngine())
         {
-            const Path destFilePath = Utils::Fs::tempPath()
-                    / Path(u"aria2_"_s + QString::number(qHash(source), 16) + u".torrent"_s);
-            m_aria2DownloadedTorrents[source] = params;
-            Net::Aria2::DownloadManager::instance()->download(source, destFilePath, pref->aria2MaxConnections());
+            const QUrl sourceUrl {source};
+            if (sourceUrl.path().endsWith(u".torrent", Qt::CaseInsensitive))
+            {
+                // .torrent URL: fetch with the aria2 engine, then parse and add as a torrent.
+                const Path destFilePath = Utils::Fs::tempPath()
+                        / Path(u"aria2_"_s + QString::number(qHash(source), 16) + u".torrent"_s);
+                m_aria2DownloadedTorrents[source] = params;
+                Net::Aria2::DownloadManager::instance()->download(source, destFilePath, pref->aria2MaxConnections());
+                return true;
+            }
+
+            // Regular HTTP(S) file: create a download task shown in the transfer list.
+            QString fileName = params.name;
+            if (fileName.isEmpty())
+                fileName = sourceUrl.fileName();
+            if (fileName.isEmpty())
+                fileName = u"download"_s;
+
+            const Path saveDir = params.savePath.isEmpty()
+                    ? m_btSession->suggestedSavePath(params.category, params.useAutoTMM)
+                    : params.savePath;
+            Net::Aria2::HttpDownloadManager::instance()->addDownload(source, saveDir / Path(fileName), pref->aria2MaxConnections());
             return true;
         }
         // Launch downloader
