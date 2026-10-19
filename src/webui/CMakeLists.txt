@@ -14,6 +14,7 @@ add_library(qbt_webui STATIC
     api/torrentcreatorcontroller.h
     api/torrentscontroller.h
     api/transfercontroller.h
+    api/serialize/serialize_httpdownload.h
     api/serialize/serialize_torrent.h
     clientdatastorage.h
     webapplication.h
@@ -32,6 +33,7 @@ add_library(qbt_webui STATIC
     api/torrentcreatorcontroller.cpp
     api/torrentscontroller.cpp
     api/transfercontroller.cpp
+    api/serialize/serialize_httpdownload.cpp
     api/serialize/serialize_torrent.cpp
     clientdatastorage.cpp
     webapplication.cpp

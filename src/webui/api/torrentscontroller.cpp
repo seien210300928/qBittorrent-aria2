@@ -56,6 +56,8 @@
 #include "base/interfaces/iapplication.h"
 #include "base/global.h"
 #include "base/logger.h"
+#include "base/net/aria2/httpdownload.h"
+#include "base/net/aria2/httpdownloadmanager.h"
 #include "base/net/downloadmanager.h"
 #include "base/preferences.h"
 #include "base/search/searchdownloadhandler.h"
@@ -68,6 +70,7 @@
 #include "base/utils/string.h"
 #include "apierror.h"
 #include "apistatus.h"
+#include "serialize/serialize_httpdownload.h"
 #include "serialize/serialize_torrent.h"
 
 // Tracker keys
@@ -632,6 +635,14 @@ void TorrentsController::infoAction()
             serializedTorrent.insert(KEY_PROP_TRACKERS, getTrackers(torrent));
 
         torrentList.append(serializedTorrent);
+    }
+
+    // Append HTTP(S) download tasks so they show up in the same transfer list.
+    for (const Net::Aria2::HttpDownload *download : asConst(Net::Aria2::HttpDownloadManager::instance()->downloads()))
+    {
+        if (idSet && !idSet->contains(BitTorrent::TorrentID::fromString(download->id())))
+            continue;
+        torrentList.append(serialize(*download));
     }
 
     if (torrentList.isEmpty())
@@ -1431,6 +1442,20 @@ void TorrentsController::stopAction()
     requireParams({u"hashes"_s});
 
     const QStringList hashes = params()[u"hashes"_s].split(u'|');
+    if ((hashes.size() == 1) && (hashes[0] == u"all"))
+    {
+        const auto downloads = Net::Aria2::HttpDownloadManager::instance()->downloads();
+        for (Net::Aria2::HttpDownload *download : downloads)
+            download->pause();
+    }
+    else
+    {
+        for (const QString &hash : hashes)
+        {
+            if (Net::Aria2::HttpDownload *download = Net::Aria2::HttpDownloadManager::instance()->findById(hash))
+                download->pause();
+        }
+    }
     applyToTorrents(hashes, [](BitTorrent::Torrent *const torrent) { torrent->stop(); });
 
     setResult(QString());
@@ -1441,6 +1466,20 @@ void TorrentsController::startAction()
     requireParams({u"hashes"_s});
 
     const QStringList idStrings = params()[u"hashes"_s].split(u'|');
+    if ((idStrings.size() == 1) && (idStrings[0] == u"all"))
+    {
+        const auto downloads = Net::Aria2::HttpDownloadManager::instance()->downloads();
+        for (Net::Aria2::HttpDownload *download : downloads)
+            download->resume();
+    }
+    else
+    {
+        for (const QString &hash : idStrings)
+        {
+            if (Net::Aria2::HttpDownload *download = Net::Aria2::HttpDownloadManager::instance()->findById(hash))
+                download->resume();
+        }
+    }
     applyToTorrents(idStrings, [](BitTorrent::Torrent *const torrent) { torrent->start(); });
 
     setResult(QString());
@@ -1624,8 +1663,23 @@ void TorrentsController::deleteAction()
     requireParams({u"hashes"_s, u"deleteFiles"_s});
 
     const QStringList hashes {params()[u"hashes"_s].split(u'|')};
-    const BitTorrent::TorrentRemoveOption deleteOption = parseBool(params()[u"deleteFiles"_s]).value_or(false)
+    const bool deleteFiles = parseBool(params()[u"deleteFiles"_s]).value_or(false);
+    const BitTorrent::TorrentRemoveOption deleteOption = deleteFiles
             ? BitTorrent::TorrentRemoveOption::RemoveContent : BitTorrent::TorrentRemoveOption::KeepContent;
+    if ((hashes.size() == 1) && (hashes[0] == u"all"))
+    {
+        const auto downloads = Net::Aria2::HttpDownloadManager::instance()->downloads();
+        for (Net::Aria2::HttpDownload *download : downloads)
+            Net::Aria2::HttpDownloadManager::instance()->removeDownload(download, deleteFiles);
+    }
+    else
+    {
+        for (const QString &hash : hashes)
+        {
+            if (Net::Aria2::HttpDownload *download = Net::Aria2::HttpDownloadManager::instance()->findById(hash))
+                Net::Aria2::HttpDownloadManager::instance()->removeDownload(download, deleteFiles);
+        }
+    }
     applyToTorrents(hashes, [deleteOption](const BitTorrent::Torrent *torrent)
     {
         BitTorrent::Session::instance()->removeTorrent(torrent->id(), deleteOption);

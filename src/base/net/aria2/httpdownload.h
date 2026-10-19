@@ -48,6 +48,7 @@ namespace Net::Aria2
         const QString &id() const { return m_id; }
         const QString &url() const { return m_url; }
         const Path &savePath() const { return m_savePath; }
+        qint64 addedOn() const { return m_addedOn; }
         State state() const { return m_state; }
         const QString &errorString() const { return m_errorString; }
 
@@ -73,6 +74,7 @@ namespace Net::Aria2
         QString m_id;
         QString m_url;
         Path m_savePath;
+        qint64 m_addedOn = 0;
         State m_state = State::Downloading;
         QString m_errorString;
         Downloader *m_downloader = nullptr;

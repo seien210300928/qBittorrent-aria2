@@ -21,6 +21,8 @@
 
 #include <utility>
 
+#include <QDateTime>
+
 #include "base/net/aria2/downloader.h"
 
 namespace Net::Aria2
@@ -30,6 +32,7 @@ namespace Net::Aria2
         , m_id {std::move(id)}
         , m_url {std::move(url)}
         , m_savePath {std::move(savePath)}
+        , m_addedOn {QDateTime::currentSecsSinceEpoch()}
         , m_downloader {downloader}
     {
     }
