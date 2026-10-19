@@ -1,9 +1,6 @@
 name: CI - Windows
 
-on:
-  push:
-    branches:
-      - v5_2_x
+on:[push, pull_request]
   workflow_dispatch:
 
 permissions: {}
