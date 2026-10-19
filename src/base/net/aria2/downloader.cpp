@@ -450,15 +450,10 @@ namespace Net::Aria2
         if (error == QNetworkReply::OperationCanceledError)
             return;
 
-        if (!isRetryableError(error))
-        {
-            fail(reply->errorString());
-            return;
-        }
-
-        // The range request may have been rejected because the server does not
-        // support Range at all (e.g. 416). Fall back to a single connection.
-        if (error == QNetworkReply::ContentResendError)
+        // The server may reject the range request (416) because it does not
+        // support Range at all; fall back to a single connection.
+        const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (httpStatus == 416)
         {
             if (m_mode == Mode::MultiConnection)
             {
@@ -480,6 +475,12 @@ namespace Net::Aria2
                 QFile::remove(m_destFilePath.toString());
                 startSingleConnection();
             }
+            return;
+        }
+
+        if (!isRetryableError(error))
+        {
+            fail(reply->errorString());
             return;
         }
 
@@ -684,7 +685,6 @@ namespace Net::Aria2
         case QNetworkReply::NetworkSessionFailedError:
         case QNetworkReply::UnknownNetworkError:
         case QNetworkReply::ProtocolUnknownError:
-        case QNetworkReply::ContentResendError:
         case QNetworkReply::TooManyRedirectsError:
             return true;
         default:
