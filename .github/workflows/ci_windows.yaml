@@ -1,6 +1,6 @@
 name: CI - Windows
 
-on: [pull_request, push]
+on: [push, pull_request]
 
 permissions: {}
 
@@ -165,7 +165,6 @@ jobs:
             -DVCPKG_TARGET_TRIPLET=${{ matrix.config.arch }}-windows-static-md-release `
             -DVERBOSE_CONFIGURE=ON `
             --graphviz=build/target_graph.dot
-          cmake --build build --target qbt_update_translations
           cmake --build build
           cmake --build build --target check
 

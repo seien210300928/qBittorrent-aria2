@@ -25,6 +25,7 @@
 #include "base/net/aria2/rangeset.h"
 
 #include <algorithm>
+#include <iterator>
 
 namespace Net::Aria2
 {

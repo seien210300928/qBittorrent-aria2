@@ -27,6 +27,7 @@
 
 #include <QElapsedTimer>
 #include <QHash>
+#include <QNetworkReply>
 #include <QObject>
 #include <QSet>
 
@@ -35,7 +36,6 @@
 
 class QFile;
 class QNetworkAccessManager;
-class QNetworkReply;
 class QTimer;
 
 namespace Net::Aria2

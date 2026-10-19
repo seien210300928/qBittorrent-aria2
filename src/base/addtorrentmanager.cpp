@@ -78,7 +78,7 @@ bool AddTorrentManager::addTorrent(const QString &source, const BitTorrent::AddT
         if (pref->useAria2DownloadEngine())
         {
             const Path destFilePath = Utils::Fs::tempPath()
-                    / Path(u"aria2_"_s + QString::number(source.hash()) + u".torrent"_s);
+                    / Path(u"aria2_"_s + QString::number(qHash(source), 16) + u".torrent"_s);
             m_aria2DownloadedTorrents[source] = params;
             Net::Aria2::DownloadManager::instance()->download(source, destFilePath, pref->aria2MaxConnections());
             return true;
