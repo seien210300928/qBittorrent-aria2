@@ -41,7 +41,7 @@ namespace Net::Aria2
 
         // Downloads `source` into `destFilePath` using the aria2 engine.
         // The caller is notified via downloadFinished / torrentFileDetected / downloadFailed.
-        void download(const QString &source, const Path &destFilePath, int maxConnections);
+        void download(QString source, const Path &destFilePath, int maxConnections);
         bool isDownloading(const QString &source) const;
 
     signals:

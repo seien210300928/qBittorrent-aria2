@@ -33,14 +33,18 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
+#include <QNetworkProxy>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QSslError>
 #include <QTimer>
 #include <QUrl>
 #include <utility>
 
 #include "base/global.h"
 #include "base/logger.h"
+#include "base/net/proxyconfigurationmanager.h"
+#include "base/preferences.h"
 
 namespace Net::Aria2
 {
@@ -56,6 +60,43 @@ namespace Net::Aria2
         {
             return Path(destFilePath.toString() + u".qba");
         }
+
+        // Follows qBittorrent's global proxy settings for general-purpose downloads.
+        QNetworkProxy generalProxy()
+        {
+            if (!Preferences::instance()->useProxyForGeneralPurposes())
+                return QNetworkProxy(QNetworkProxy::NoProxy);
+
+            const auto *proxyManager = ProxyConfigurationManager::instance();
+            const ProxyConfiguration proxyConfig = proxyManager->proxyConfiguration();
+            switch (proxyConfig.type)
+            {
+            case ProxyType::None:
+            case ProxyType::SOCKS4:
+                return QNetworkProxy(QNetworkProxy::NoProxy);
+            case ProxyType::HTTP:
+            {
+                QNetworkProxy proxy {QNetworkProxy::HttpProxy, proxyConfig.ip, proxyConfig.port
+                        , (proxyConfig.authEnabled ? proxyConfig.username : QString())
+                        , (proxyConfig.authEnabled ? proxyConfig.password : QString())};
+                proxy.setCapabilities(proxyConfig.hostnameLookupEnabled
+                        ? (proxy.capabilities() | QNetworkProxy::HostNameLookupCapability)
+                        : (proxy.capabilities() & ~QNetworkProxy::HostNameLookupCapability));
+                return proxy;
+            }
+            case ProxyType::SOCKS5:
+            {
+                QNetworkProxy proxy {QNetworkProxy::Socks5Proxy, proxyConfig.ip, proxyConfig.port
+                        , (proxyConfig.authEnabled ? proxyConfig.username : QString())
+                        , (proxyConfig.authEnabled ? proxyConfig.password : QString())};
+                proxy.setCapabilities(proxyConfig.hostnameLookupEnabled
+                        ? (proxy.capabilities() | QNetworkProxy::HostNameLookupCapability)
+                        : (proxy.capabilities() & ~QNetworkProxy::HostNameLookupCapability));
+                return proxy;
+            }
+            }
+            return QNetworkProxy(QNetworkProxy::NoProxy);
+        }
     }
 
     Downloader::Downloader(const QString &url, const Path &destFilePath, const int maxConnections, QObject *parent)
@@ -66,6 +107,21 @@ namespace Net::Aria2
         , m_planner {defaultMinSplit}
     {
         m_nam = new QNetworkAccessManager(this);
+        m_nam->setProxy(generalProxy());
+        connect(m_nam, &QNetworkAccessManager::sslErrors, this, [](QNetworkReply *reply, const QList<QSslError> &errors)
+        {
+            if (Preferences::instance()->isIgnoreSSLErrors())
+            {
+                reply->ignoreSslErrors();
+            }
+            else
+            {
+                QStringList errorList;
+                for (const QSslError &error : errors)
+                    errorList += error.errorString();
+                LogMsg(tr("SSL error, URL: \"%1\", errors: \"%2\"").arg(reply->url().toString(), errorList.join(u". ")), Log::WARNING);
+            }
+        });
         m_file = new QFile(m_destFilePath.toString(), this);
         m_speedTimer = new QTimer(this);
         m_speedTimer->setInterval(speedSampleIntervalMs);

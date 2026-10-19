@@ -47,7 +47,7 @@ namespace Net::Aria2
     {
     }
 
-    void DownloadManager::download(const QString &source, const Path &destFilePath, const int maxConnections)
+    void DownloadManager::download(QString source, const Path &destFilePath, const int maxConnections)
     {
         if (m_downloads.contains(source))
             return;
@@ -55,6 +55,8 @@ namespace Net::Aria2
         auto *downloader = new Downloader(source, destFilePath, maxConnections, this);
         m_downloads[source] = downloader;
 
+        // `source` is a by-value parameter: the lambdas capture a private copy,
+        // safe to use after the caller's object has gone away.
         connect(downloader, &Downloader::finished, this, [this, source, downloader](const QString &, const Path &filePath)
         {
             m_downloads.remove(source);
