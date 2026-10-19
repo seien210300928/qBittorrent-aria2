@@ -34,8 +34,10 @@
 #include "base/bittorrent/session.h"
 #include "base/bittorrent/torrentdescriptor.h"
 #include "base/logger.h"
+#include "base/net/aria2/downloadmanager.h"
 #include "base/net/downloadmanager.h"
 #include "base/preferences.h"
+#include "base/utils/fs.h"
 
 AddTorrentManager::AddTorrentManager(IApplication *app, BitTorrent::Session *btSession, QObject *parent)
     : ApplicationComponent(app, parent)
@@ -44,6 +46,14 @@ AddTorrentManager::AddTorrentManager(IApplication *app, BitTorrent::Session *btS
     Q_ASSERT(btSession);
     connect(btSession, &BitTorrent::Session::torrentAdded, this, &AddTorrentManager::onSessionTorrentAdded);
     connect(btSession, &BitTorrent::Session::addTorrentFailed, this, &AddTorrentManager::onSessionAddTorrentFailed);
+
+    Net::Aria2::DownloadManager::initInstance();
+    connect(Net::Aria2::DownloadManager::instance(), &Net::Aria2::DownloadManager::downloadFinished
+            , this, &AddTorrentManager::onAria2DownloadFinished);
+    connect(Net::Aria2::DownloadManager::instance(), &Net::Aria2::DownloadManager::torrentFileDetected
+            , this, &AddTorrentManager::onAria2TorrentFileDetected);
+    connect(Net::Aria2::DownloadManager::instance(), &Net::Aria2::DownloadManager::downloadFailed
+            , this, &AddTorrentManager::onAria2DownloadFailed);
 }
 
 BitTorrent::Session *AddTorrentManager::btSession() const
@@ -60,11 +70,19 @@ bool AddTorrentManager::addTorrent(const QString &source, const BitTorrent::AddT
 
     if (Net::DownloadManager::hasSupportedScheme(source))
     {
-        if (m_downloadedTorrents.contains(source))
+        if (m_downloadedTorrents.contains(source) || m_aria2DownloadedTorrents.contains(source))
             return true;
 
         LogMsg(tr("Downloading torrent... Source: \"%1\"").arg(source));
         const auto *pref = Preferences::instance();
+        if (pref->useAria2DownloadEngine())
+        {
+            const Path destFilePath = Utils::Fs::tempPath()
+                    / Path(u"aria2_"_s + QString::number(source.hash()) + u".torrent"_s);
+            m_aria2DownloadedTorrents[source] = params;
+            Net::Aria2::DownloadManager::instance()->download(source, destFilePath, pref->aria2MaxConnections());
+            return true;
+        }
         // Launch downloader
         Net::DownloadManager::instance()->download(Net::DownloadRequest(source).limit(pref->getTorrentFileSizeLimit())
                 , pref->useProxyForGeneralPurposes(), this, &AddTorrentManager::onDownloadFinished);
@@ -131,6 +149,27 @@ void AddTorrentManager::onDownloadFinished(const Net::DownloadResult &result)
     default:
         handleAddTorrentFailed(source, result.errorString);
     }
+}
+
+void AddTorrentManager::onAria2DownloadFinished(const QString &source, const Path &filePath)
+{
+    const BitTorrent::AddTorrentParams addTorrentParams = m_aria2DownloadedTorrents.take(source);
+
+    if (const auto loadResult = BitTorrent::TorrentDescriptor::loadFromFile(filePath))
+        processTorrent(source, loadResult.value(), addTorrentParams);
+    else
+        handleAddTorrentFailed(source, loadResult.error());
+}
+
+void AddTorrentManager::onAria2TorrentFileDetected(const QString &source, const Path &filePath)
+{
+    onAria2DownloadFinished(source, filePath);
+}
+
+void AddTorrentManager::onAria2DownloadFailed(const QString &source, const QString &errorString)
+{
+    m_aria2DownloadedTorrents.remove(source);
+    handleAddTorrentFailed(source, errorString);
 }
 
 void AddTorrentManager::onSessionTorrentAdded(BitTorrent::Torrent *torrent)

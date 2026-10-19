@@ -624,6 +624,10 @@ void OptionsDialog::loadDownloadsTabOptions()
     m_ui->checkAppendqB->setChecked(session->isAppendExtensionEnabled());
     m_ui->checkUnwantedFolder->setChecked(session->isUnwantedFolderEnabled());
     m_ui->checkRecursiveDownload->setChecked(pref->isRecursiveDownloadEnabled());
+    m_ui->checkAria2Engine->setChecked(pref->useAria2DownloadEngine());
+    m_ui->spinAria2Connections->setValue(pref->aria2MaxConnections());
+    m_ui->labelAria2Connections->setEnabled(pref->useAria2DownloadEngine());
+    m_ui->spinAria2Connections->setEnabled(pref->useAria2DownloadEngine());
 
     m_ui->comboSavingMode->setCurrentIndex(!session->isAutoTMMDisabledByDefault());
     m_ui->comboTorrentCategoryChanged->setCurrentIndex(session->isDisableAutoTMMWhenCategoryChanged());
@@ -728,6 +732,13 @@ void OptionsDialog::loadDownloadsTabOptions()
     connect(m_ui->checkAppendqB, &QAbstractButton::toggled, this, &ThisType::enableApplyButton);
     connect(m_ui->checkUnwantedFolder, &QAbstractButton::toggled, this, &ThisType::enableApplyButton);
     connect(m_ui->checkRecursiveDownload, &QAbstractButton::toggled, this, &ThisType::enableApplyButton);
+    connect(m_ui->checkAria2Engine, &QAbstractButton::toggled, this, [this](const bool checked)
+    {
+        m_ui->labelAria2Connections->setEnabled(checked);
+        m_ui->spinAria2Connections->setEnabled(checked);
+        enableApplyButton();
+    });
+    connect(m_ui->spinAria2Connections, qOverload<int>(&QSpinBox::valueChanged), this, &ThisType::enableApplyButton);
 
     connect(m_ui->comboSavingMode, qComboBoxCurrentIndexChanged, this, &ThisType::enableApplyButton);
     connect(m_ui->comboTorrentCategoryChanged, qComboBoxCurrentIndexChanged, this, &ThisType::enableApplyButton);
@@ -799,6 +810,8 @@ void OptionsDialog::saveDownloadsTabOptions() const
     session->setAppendExtensionEnabled(m_ui->checkAppendqB->isChecked());
     session->setUnwantedFolderEnabled(m_ui->checkUnwantedFolder->isChecked());
     pref->setRecursiveDownloadEnabled(m_ui->checkRecursiveDownload->isChecked());
+    pref->setUseAria2DownloadEngine(m_ui->checkAria2Engine->isChecked());
+    pref->setAria2MaxConnections(m_ui->spinAria2Connections->value());
 
     session->setAutoTMMDisabledByDefault(m_ui->comboSavingMode->currentIndex() == 0);
     session->setDisableAutoTMMWhenCategoryChanged(m_ui->comboTorrentCategoryChanged->currentIndex() == 1);

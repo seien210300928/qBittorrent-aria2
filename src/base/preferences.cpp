@@ -529,6 +529,33 @@ void Preferences::setScanDirsLastPath(const Path &path)
     setValue(u"Preferences/Downloads/ScanDirsLastPath"_s, path);
 }
 
+bool Preferences::useAria2DownloadEngine() const
+{
+    return value(u"Preferences/Downloads/UseAria2Engine"_s, false);
+}
+
+void Preferences::setUseAria2DownloadEngine(const bool enabled)
+{
+    if (enabled == useAria2DownloadEngine())
+        return;
+
+    setValue(u"Preferences/Downloads/UseAria2Engine"_s, enabled);
+}
+
+int Preferences::aria2MaxConnections() const
+{
+    return value(u"Preferences/Downloads/Aria2MaxConnections"_s, 16);
+}
+
+void Preferences::setAria2MaxConnections(const int value)
+{
+    const int clamped = std::clamp(value, 1, 64);
+    if (clamped == aria2MaxConnections())
+        return;
+
+    setValue(u"Preferences/Downloads/Aria2MaxConnections"_s, clamped);
+}
+
 bool Preferences::isMailNotificationEnabled() const
 {
     return value(u"Preferences/MailNotification/enabled"_s, false);

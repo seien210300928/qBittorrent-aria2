@@ -147,6 +147,10 @@ public:
     // Downloads
     Path getScanDirsLastPath() const;
     void setScanDirsLastPath(const Path &path);
+    bool useAria2DownloadEngine() const;
+    void setUseAria2DownloadEngine(bool enabled);
+    int aria2MaxConnections() const;
+    void setAria2MaxConnections(int value);
     bool isMailNotificationEnabled() const;
     void setMailNotificationEnabled(bool enabled);
     QString getMailNotificationSender() const;

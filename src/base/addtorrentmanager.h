@@ -52,6 +52,7 @@ namespace Net
     struct DownloadResult;
 }
 
+class Path;
 class QString;
 
 class AddTorrentManager : public ApplicationComponent<QObject>
@@ -79,6 +80,9 @@ protected:
 
 private:
     void onDownloadFinished(const Net::DownloadResult &result);
+    void onAria2DownloadFinished(const QString &source, const Path &filePath);
+    void onAria2TorrentFileDetected(const QString &source, const Path &filePath);
+    void onAria2DownloadFailed(const QString &source, const QString &errorString);
     void onSessionTorrentAdded(BitTorrent::Torrent *torrent);
     void onSessionAddTorrentFailed(const BitTorrent::InfoHash &infoHash, const BitTorrent::AddTorrentError &reason);
     bool processTorrent(const QString &source, const BitTorrent::TorrentDescriptor &torrentDescr
@@ -86,6 +90,7 @@ private:
 
     BitTorrent::Session *m_btSession = nullptr;
     QHash<QString, BitTorrent::AddTorrentParams> m_downloadedTorrents;
+    QHash<QString, BitTorrent::AddTorrentParams> m_aria2DownloadedTorrents;
     QHash<BitTorrent::InfoHash, QString> m_sourcesByInfoHash;
     QHash<QString, std::shared_ptr<TorrentFileGuard>> m_guardedTorrentFiles;
 };
